@@ -1,0 +1,716 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Operación del Día</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+/* Layout: una columna tipo "ficha de orden" para el celular; pestañas Hoy / Cuentas / Historial */
+:root{
+  --bg:#eef1ef; --card:#ffffff; --ink:#15211d; --muted:#5b6b65; --line:#d3dbd7;
+  --accent:#0f6b5c; --accent-ink:#ffffff; --buy:#137a3a; --sell:#b3261e;
+  --warn:#8a5a00; --warn-bg:#fff4dc; --ok:#137a3a; --ok-bg:#e3f4e8; --bad:#b3261e; --bad-bg:#fbe6e4;
+  --f-display:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1513; --card:#17201d; --ink:#e6eeea; --muted:#94a59e; --line:#2a3632;
+  --accent:#4fc3ad; --accent-ink:#0f1513; --buy:#4cc27a; --sell:#ff7b72;
+  --warn:#f0c060; --warn-bg:#2b2412; --ok:#4cc27a; --ok-bg:#16291e; --bad:#ff7b72; --bad-bg:#2e1715; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1513; --card:#17201d; --ink:#e6eeea; --muted:#94a59e; --line:#2a3632;
+  --accent:#4fc3ad; --accent-ink:#0f1513; --buy:#4cc27a; --sell:#ff7b72;
+  --warn:#f0c060; --warn-bg:#2b2412; --ok:#4cc27a; --ok-bg:#16291e; --bad:#ff7b72; --bad-bg:#2e1715; color-scheme:dark}
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--f-display);font-size:16px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:520px;margin:0 auto;padding-block:16px 48px;display:grid;gap:14px}
+header{display:flex;gap:12px;align-items:center}
+.logo{width:44px;height:44px;border-radius:10px;background:var(--accent);display:grid;place-items:center;flex:none}
+h1{font-size:1.4rem;font-weight:800;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0;font-weight:600}
+.sub{color:var(--muted);margin:0;font-size:.85rem}
+nav{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:4px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+nav button{background:transparent;color:var(--muted);padding:10px 4px;font-weight:600}
+nav button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:12px;min-width:0}
+.step{display:flex;gap:8px;align-items:baseline}
+.step b{font-family:var(--f-mono);color:var(--accent);font-size:.85rem}
+label{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.field{display:grid;gap:6px;min-width:0}
+input,select{font:500 1.05rem var(--f-mono);padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%;box-sizing:border-box;min-width:0}
+input:focus,select:focus,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{font:700 .95rem var(--f-display);padding:12px 14px;border-radius:8px;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+button.small{padding:8px 10px;font-size:.85rem}
+button:disabled{opacity:.45;cursor:not-allowed}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--bg);color:var(--ink);border:1px solid var(--line);font-weight:600;padding:8px 12px;font-size:.9rem}
+.chip[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.chip small{display:block;font-weight:500;color:var(--muted);font-size:.72rem}
+.dir{font:800 2rem var(--f-display);text-align:center;padding:4px 0}
+.dir.buy{color:var(--buy)} .dir.sell{color:var(--sell)} .dir.none{color:var(--muted);font-size:1.05rem;font-weight:600}
+.big{font:700 2.6rem var(--f-mono);font-variant-numeric:tabular-nums;text-align:center;color:var(--accent);line-height:1.1}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:.92rem}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+.out{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.out div{background:var(--bg);border-radius:8px;padding:10px;display:grid;gap:2px}
+.out .v{font:700 1.3rem var(--f-mono);font-variant-numeric:tabular-nums}
+.v.sl{color:var(--sell)} .v.tp{color:var(--buy)}
+.note{border-radius:8px;padding:10px 12px;font-size:.9rem}
+.note.warn{background:var(--warn-bg);color:var(--warn)}
+.note.ok{background:var(--ok-bg);color:var(--ok)}
+.note.bad{background:var(--bad-bg);color:var(--bad)}
+.small{font-size:.85rem;color:var(--muted)}
+.opts{display:grid;gap:8px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.opt input{width:auto;margin-top:4px}
+.opt span{font-size:.92rem}
+a{color:var(--accent)}
+.acc{border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:8px}
+.acc-h{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 8px;border-radius:99px;background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.pill.fund{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.pill.r1,.pill.r2{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.85rem}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
+td.n{font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+.pos{color:var(--buy)} .neg{color:var(--sell)}
+.empty{color:var(--muted);text-align:center;padding:18px 8px;font-size:.92rem}
+.sync{font-size:.75rem;color:var(--muted);text-align:center}
+ul.rules{margin:0;padding-left:1.1rem;display:grid;gap:6px;font-size:.9rem}
+@media (max-width:380px){.row,.out{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo" aria-hidden="true">
+      <svg width="26" height="26" viewBox="0 0 26 26"><path d="M3 21h5v-5h5v-5h5V6h5" fill="none" stroke="var(--accent-ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div>
+      <h1>Operación del Día</h1>
+      <p class="sub">EUR/USD · SL 15 pips · TP 22.5 pips · una operación al día</p>
+    </div>
+  </header>
+
+  <nav role="tablist">
+    <button role="tab" id="tab-hoy" aria-selected="true">Hoy</button>
+    <button role="tab" id="tab-cuentas" aria-selected="false">Cuentas</button>
+    <button role="tab" id="tab-hist" aria-selected="false">Historial</button>
+  </nav>
+
+  <div class="note warn" id="avisoGuardado" hidden></div>
+
+  <!-- ===================== HOY ===================== -->
+  <section id="pane-hoy" class="wrap" style="padding:0">
+    <div class="card" id="cardSinCuentas" hidden>
+      <h2>Empieza aquí</h2>
+      <p style="margin:0">Todavía no hay cuentas guardadas. Ve a <b>Cuentas</b> y agrega la cuenta con la que vas a operar (número, tamaño y tipo).</p>
+      <button type="button" id="irCuentas">Agregar una cuenta</button>
+    </div>
+
+    <div class="card" id="cardCuenta" hidden>
+      <h2>Cuenta</h2>
+      <div class="chips" id="chipsCuentas"></div>
+      <div class="field"><label for="balance">Balance actual (lo ves en MetaTrader)</label>
+        <input id="balance" type="text" inputmode="decimal" autocomplete="off"></div>
+      <dl class="kv" id="estado"></dl>
+      <div class="note" id="avisoCuenta" hidden></div>
+    </div>
+
+    <div class="card" id="cardNoticias" hidden>
+      <div class="step"><b>1</b><h2>Noticias de hoy</h2></div>
+      <p class="small" style="margin:0">Abre el <a href="https://www.forexfactory.com/calendar" target="_blank" rel="noopener">calendario de Forex Factory</a> y mira si hoy hay noticias <b>rojas</b> de <b>USD</b> o <b>EUR</b>.</p>
+      <div class="opts" role="radiogroup" aria-label="Noticias de hoy">
+        <label class="opt"><input type="radio" name="noticias" id="not-no" value="no"><span>No hay noticias rojas de USD ni EUR hoy</span></label>
+        <label class="opt"><input type="radio" name="noticias" id="not-man" value="manana"><span>Hay una en la mañana, antes de que yo abra</span></label>
+        <label class="opt"><input type="radio" name="noticias" id="not-tar" value="tarde"><span>Hay una después de abrir y antes de las 4:30 PM</span></label>
+      </div>
+      <div class="field" id="campoHoraNoticia" hidden><label for="horaNoticia">Hora de la última noticia de la mañana (tu hora)</label>
+        <input id="horaNoticia" type="time"></div>
+      <div class="note" id="avisoNoticias" hidden></div>
+    </div>
+
+    <div class="card" id="cardDir" hidden>
+      <div class="step"><b>2</b><h2>Dirección de hoy</h2></div>
+      <div class="dir none" id="dir">Todavía no sorteada</div>
+      <button type="button" id="sortear">Sortear dirección</button>
+      <p class="small" style="margin:0" id="notaSorteo">Un solo sorteo por día y vale para <b>todas</b> tus cuentas. Si una cuenta compra y otra vende el mismo día, Funding Pips lo trata como cobertura entre cuentas, que está prohibida.</p>
+    </div>
+
+    <div class="card" id="cardLote" hidden>
+      <div class="step"><b>3</b><h2>Lote</h2></div>
+      <div class="big" id="lote">—</div>
+      <div class="out" id="escenarios"></div>
+      <dl class="kv" id="detalleLote"></dl>
+      <p class="small" style="margin:0">El lote ya descuenta la comisión ($5 por lote) y deja margen por si el precio se desliza unos pips en una noticia.</p>
+    </div>
+
+    <div class="card" id="cardNiveles" hidden>
+      <div class="step"><b>4</b><h2>Stop Loss y Take Profit</h2></div>
+      <div class="field"><label for="entrada">Precio al que se abrió la operación</label>
+        <input id="entrada" type="text" inputmode="decimal" autocomplete="off" placeholder="1.11170"></div>
+      <div class="out">
+        <div><label>Stop Loss</label><span class="v sl" id="sl">—</span></div>
+        <div><label>Take Profit</label><span class="v tp" id="tp">—</span></div>
+      </div>
+      <p class="small" style="margin:0">Copia los dos en la operación (mantén presionada → Modificar). Después <b>cierra MetaTrader</b> y pon una alarma a las <b>4:30 PM</b>.</p>
+    </div>
+
+    <div class="card" id="cardCierre" hidden>
+      <div class="step"><b>5</b><h2>Cuando cierre</h2></div>
+      <p class="small" style="margin:0">Cuando toque el TP, el SL o la cierres a las 4:30, escribe el balance nuevo. Se guarda en el historial y la cuenta queda lista para mañana.</p>
+      <div class="field"><label for="balanceNuevo">Balance después de cerrar</label>
+        <input id="balanceNuevo" type="text" inputmode="decimal" autocomplete="off"></div>
+      <button type="button" id="registrar">Guardar resultado</button>
+      <div class="note" id="avisoRegistro" hidden></div>
+    </div>
+
+    <div class="card" id="cardReglas" hidden>
+      <h2>Reglas que no cambian</h2>
+      <ul class="rules">
+        <li>Una operación al día, de lunes a viernes.</li>
+        <li>La dirección la decide el sorteo, nunca la gráfica.</li>
+        <li>SL y TP puestos siempre. No se mueven ni se cierra antes.</li>
+        <li>Si sigue abierta a las 4:30 PM, se cierra. Nada abierto después de las 5:00 PM ni el fin de semana.</li>
+        <li>Al llegar a la meta, se para.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===================== CUENTAS ===================== -->
+  <section id="pane-cuentas" class="wrap" style="padding:0" hidden>
+    <div class="card">
+      <h2>Tus cuentas</h2>
+      <div id="listaCuentas" class="opts"></div>
+    </div>
+
+    <div class="card">
+      <h2 id="tituloForm">Agregar cuenta</h2>
+      <div class="note warn" style="margin:0">Cada cuenta nueva que compres empieza en el <b>reto, Fase 1</b>, aunque ya tengas otra fondeada. Funding Pips no da cuentas fondeadas nuevas por haber pasado una.</div>
+      <div class="row">
+        <div class="field"><label for="fNumero">Número de cuenta</label><input id="fNumero" type="text" inputmode="numeric" autocomplete="off"></div>
+        <div class="field"><label for="fTamano">Tamaño ($)</label><input id="fTamano" type="text" inputmode="decimal" value="5000"></div>
+      </div>
+      <div class="field"><label for="fTipo">Tipo</label>
+        <select id="fTipo">
+          <option value="r1">Reto · Fase 1 (meta +10%)</option>
+          <option value="r2">Reto · Fase 2 (meta +6%)</option>
+          <option value="fund">Fondeada (ciclos de +4%)</option>
+        </select></div>
+      <div class="row">
+        <div class="field"><label for="fBalance">Balance actual</label><input id="fBalance" type="text" inputmode="decimal" placeholder="igual al tamaño"></div>
+        <div class="field"><label for="fMeta">Meta (%)</label><input id="fMeta" type="text" inputmode="decimal" value="10"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="fDiario">Límite diario (%)</label><input id="fDiario" type="text" inputmode="decimal" value="4"></div>
+        <div class="field"><label for="fTotal">Límite total (%)</label><input id="fTotal" type="text" inputmode="decimal" value="12"></div>
+      </div>
+      <div class="btns">
+        <button type="button" id="guardarCuenta">Guardar cuenta</button>
+        <button type="button" class="ghost" id="cancelarEdicion" hidden>Cancelar</button>
+      </div>
+      <div class="note" id="avisoForm" hidden></div>
+    </div>
+    <div class="card">
+      <h2>Respaldo de tus datos</h2>
+      <p class="small" style="margin:0">Tus cuentas, sorteos e historial se guardan solo en este navegador. Copia el respaldo de vez en cuando y guárdalo en WhatsApp o en tus notas. Si cambias de teléfono o se borran los datos, pégalo abajo y toca Restaurar.</p>
+      <div class="btns"><button type="button" id="copiarRespaldo">Copiar respaldo</button></div>
+      <div class="field"><label for="textoRespaldo">Respaldo</label>
+        <textarea id="textoRespaldo" rows="4" style="font:500 .8rem var(--f-mono);padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%"></textarea></div>
+      <div class="btns"><button type="button" class="ghost" id="restaurar">Restaurar desde el texto</button></div>
+      <div class="note" id="avisoRespaldo" hidden></div>
+    </div>
+  </section>
+
+  <!-- ===================== HISTORIAL ===================== -->
+  <section id="pane-hist" class="wrap" style="padding:0" hidden>
+    <div class="card">
+      <h2>Resumen</h2>
+      <dl class="kv" id="resumenHist"></dl>
+    </div>
+    <div class="card">
+      <h2>Operaciones y cobros</h2>
+      <div class="tbl"><table>
+        <thead><tr><th>Fecha</th><th>Cuenta</th><th>Tipo</th><th>Lote</th><th style="text-align:right">Resultado</th><th style="text-align:right">Balance</th></tr></thead>
+        <tbody id="filasHist"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <p class="sync" id="sync">Conectando…</p>
+</div>
+
+<script>
+/* ============ Constantes del método ============ */
+const SL_PIPS = 15, TP_PIPS = 22.5, PIP = 0.0001, USD_PIP_LOTE = 10;
+const COMISION_LOTE = 5;          // USD por lote ida y vuelta, se cobra al abrir
+const RIESGO_MAX = 0.031;         // 3.1% del tamaño por operación
+const DESLIZ_META = 3;            // pips que se descuentan al calcular si el TP alcanza la meta
+const DESLIZ_LIMITE = 5;          // pips extra de pérdida posibles en el SL (deslizamiento)
+const COLCHON_TOTAL = 0.005;      // 0.5% de margen sobre el piso total
+const PAGO_PCT = 0.80;            // reparto de la cuenta fondeada
+const DIAS_PAGO = 14;
+
+const $ = id => document.getElementById(id);
+const fmt = n => (n < 0 ? '−$' : '$') + Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtS = n => (n >= 0 ? '+' : '−') + '$' + Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function num(s){
+  let t = String(s ?? '').trim().replace(/\s/g,'').replace(/\$/g,'');
+  if (t === '') return NaN;
+  if (t.includes('.') && t.includes(',')) {
+    if (t.lastIndexOf(',') > t.lastIndexOf('.')) t = t.replace(/\./g,'').replace(',', '.'); else t = t.replace(/,/g,'');
+  } else if (t.includes(',')) {
+    if (/^\d{1,3}(,\d{3})+$/.test(t)) t = t.replace(/,/g,''); else t = t.replace(',', '.');
+  }
+  return Number(t);
+}
+function hoyVE(){
+  const p = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  return p; // YYYY-MM-DD
+}
+function diaSemanaVE(){
+  return new Intl.DateTimeFormat('es',{timeZone:'America/Caracas',weekday:'long'}).format(new Date());
+}
+function sumarDias(iso, d){ const x = new Date(iso + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate()+d); return x.toISOString().slice(0,10); }
+function diffDias(a, b){ return Math.round((new Date(b+'T12:00:00Z') - new Date(a+'T12:00:00Z'))/86400000); }
+function fechaCorta(iso){ const [y,m,d] = iso.split('-'); return `${d}/${m}`; }
+
+/* ============ Cálculo del lote (función pura) ============ */
+function calcularLote(c, balance, perdidaHoy){
+  const ini = c.tamano;
+  const metaUSD = ini * (1 + c.meta/100);
+  const falta = metaUSD - balance;
+  const pisoTotal = ini * (1 - c.total/100);
+  const limiteDiario = ini * c.diario/100;
+  const r = {metaUSD, falta, pisoTotal, limiteDiario, lote:0, estado:'ok', motivo:''};
+  if (falta <= 0) { r.estado = 'meta'; return r; }
+  const perdidaPorLote = SL_PIPS*USD_PIP_LOTE + COMISION_LOTE + DESLIZ_LIMITE*USD_PIP_LOTE;      // 205
+  const netoMetaPorLote = TP_PIPS*USD_PIP_LOTE - COMISION_LOTE - DESLIZ_META*USD_PIP_LOTE;      // 190
+  const cents = x => Math.floor(x*100 + 1e-9);
+  const lMeta   = Math.ceil(falta / netoMetaPorLote * 100 - 1e-9);
+  const lRiesgo = cents(ini*RIESGO_MAX / (SL_PIPS*USD_PIP_LOTE));
+  const lDiario = cents((limiteDiario - Math.max(0, perdidaHoy)) / perdidaPorLote);
+  const lTotal  = cents((balance - pisoTotal - ini*COLCHON_TOTAL) / perdidaPorLote);
+  const l = Math.min(lMeta, lRiesgo, lDiario, lTotal);
+  r.limites = {lMeta, lRiesgo, lDiario, lTotal};
+  if (l < 1) { r.estado = 'stop'; r.motivo = lTotal < 1 ? 'total' : 'diario'; return r; }
+  r.lote = l/100;
+  r.limitante = l === lMeta ? 'meta' : l === lRiesgo ? 'riesgo' : l === lDiario ? 'diario' : 'total';
+  r.comision = r.lote*COMISION_LOTE;
+  r.tpBal = balance - r.comision + r.lote*TP_PIPS*USD_PIP_LOTE;
+  r.slBal = balance - r.comision - r.lote*SL_PIPS*USD_PIP_LOTE;
+  return r;
+}
+
+/* ============ Estado ============ */
+const S = { cuentas: [], hist: [], sorteo: null, sel: null, editando: null, db: null, hoy: hoyVE() };
+const META_DEF = {r1:10, r2:6, fund:4};
+const NOMBRE_TIPO = {r1:'Reto · Fase 1', r2:'Reto · Fase 2', fund:'Fondeada'};
+
+function prefs(k, v){ try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch(e){ return null; } }
+
+/* ---- Almacén: db de Claude o, si no hay, el navegador ---- */
+const Local = {
+  leer(){ try { return JSON.parse(localStorage.getItem('odd_data') || '{}'); } catch(e){ return {}; } },
+  guardar(d){ try { localStorage.setItem('odd_data', JSON.stringify(d)); } catch(e){} }
+};
+async function guardarCuenta(c){
+  if (S.db) { await S.db.collection('cuentas').doc(c.id).set(c); }
+  else { const d = Local.leer(); d.cuentas = (d.cuentas||[]).filter(x=>x.id!==c.id).concat([c]); Local.guardar(d); cargarLocal(); }
+}
+async function borrarCuenta(id){
+  if (S.db) { await S.db.collection('cuentas').doc(id).delete(); }
+  else { const d = Local.leer(); d.cuentas = (d.cuentas||[]).filter(x=>x.id!==id); Local.guardar(d); cargarLocal(); }
+}
+async function agregarHist(h){
+  if (S.db) { await S.db.collection('historial').add(h); }
+  else { const d = Local.leer(); d.hist = (d.hist||[]).concat([h]); Local.guardar(d); cargarLocal(); }
+}
+async function guardarSorteo(s){
+  if (S.db) { await S.db.collection('sorteos').doc(s.fecha).set(s); }
+  else { const d = Local.leer(); d.sorteos = d.sorteos||{}; d.sorteos[s.fecha] = s; Local.guardar(d); cargarLocal(); }
+}
+function cargarLocal(){
+  const d = Local.leer();
+  S.cuentas = d.cuentas || [];
+  S.hist = (d.hist || []).slice().sort((a,b)=>b.ts-a.ts);
+  S.sorteo = (d.sorteos||{})[S.hoy] || null;
+  render();
+}
+
+/* ============ Render ============ */
+function cuentasActivas(){ return S.cuentas.filter(c => c.estado !== 'archivada').sort((a,b)=>a.creado-b.creado); }
+function cuentaSel(){ const act = cuentasActivas(); return act.find(c=>c.id===S.sel) || act[0] || null; }
+function perdidaHoy(c){
+  return S.hist.filter(h=>h.cuenta===c.id && h.fecha===S.hoy && h.tipo==='operacion' && h.resultado<0).reduce((s,h)=>s-h.resultado,0);
+}
+function opsHoy(c){ return S.hist.filter(h=>h.cuenta===c.id && h.fecha===S.hoy && h.tipo==='operacion').length; }
+
+function render(){
+  renderHoy(); renderCuentas(); renderHist();
+}
+
+function renderHoy(){
+  const act = cuentasActivas();
+  const hay = act.length > 0;
+  $('cardSinCuentas').hidden = hay;
+  ['cardCuenta','cardNoticias','cardDir','cardLote','cardNiveles','cardCierre','cardReglas'].forEach(id => $(id).hidden = !hay);
+  if (!hay) return;
+  const c = cuentaSel(); S.sel = c.id;
+
+  // chips
+  const chips = $('chipsCuentas'); chips.textContent = '';
+  act.forEach(a => {
+    const b = document.createElement('button'); b.type='button'; b.className='chip'; b.setAttribute('aria-pressed', a.id===c.id);
+    b.textContent = '#' + a.numero;
+    const s = document.createElement('small'); s.textContent = NOMBRE_TIPO[a.tipo] + ' · ' + fmt(a.balance).replace('.00',''); b.appendChild(s);
+    b.onclick = () => { S.sel = a.id; prefs('odd_sel', a.id); $('balance').value = ''; render(); };
+    chips.appendChild(b);
+  });
+
+  // balance
+  const inp = $('balance');
+  if (document.activeElement !== inp) inp.value = c.balance.toFixed(2);
+  const bal = isFinite(num(inp.value)) ? num(inp.value) : c.balance;
+
+  const r = calcularLote(c, bal, perdidaHoy(c));
+  const est = $('estado'); est.textContent = '';
+  const fila = (k,v,cls) => { const dt=document.createElement('dt'); dt.textContent=k; const dd=document.createElement('dd'); dd.textContent=v; if(cls) dd.className=cls; est.append(dt,dd); };
+  const res = bal - c.tamano;
+  fila('Resultado', fmtS(res) + ' (' + (res/c.tamano*100).toFixed(2) + '%)', res>=0?'pos':'neg');
+  fila(c.tipo==='fund' ? 'Meta del ciclo' : 'Meta de la fase', fmt(r.metaUSD) + ' (+' + c.meta + '%)');
+  fila('Te falta', r.falta > 0 ? fmt(r.falta) : 'Nada');
+  fila('Piso total', fmt(r.pisoTotal) + ' · margen ' + fmt(bal - r.pisoTotal));
+  if (c.tipo === 'fund') {
+    if (c.cicloInicio) {
+      const pago = sumarDias(c.cicloInicio, DIAS_PAGO); const d = diffDias(S.hoy, pago);
+      fila('Próximo cobro (aprox.)', fechaCorta(pago) + (d>0 ? ' · en ' + d + ' días' : ' · ya puedes pedirlo'));
+    } else fila('Próximo cobro', 'empieza a contar con tu primera operación');
+    if (res > 0) fila('Cobrarías hoy (80%)', fmt(res*PAGO_PCT));
+  }
+
+  // aviso cuenta
+  const av = $('avisoCuenta'); av.hidden = true; av.className = 'note';
+  const dow = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Caracas'})).getDay();
+  if (r.estado === 'meta') {
+    av.hidden = false; av.classList.add('ok');
+    av.textContent = c.tipo === 'fund'
+      ? 'Ciclo cumplido. No abras más operaciones hasta pedir el cobro. Cuando lo pidas, regístralo en Cuentas → Registrar cobro.'
+      : 'Meta alcanzada. No abras más operaciones en esta cuenta y espera el correo de Funding Pips. Luego cámbiala de fase en Cuentas.';
+  } else if (r.estado === 'stop') {
+    av.hidden = false; av.classList.add('bad');
+    av.textContent = r.motivo === 'total' ? 'Estás muy cerca del límite total. Hoy no se opera en esta cuenta.' : 'Ya usaste el límite de pérdida de hoy. No se opera hasta mañana.';
+  } else if (dow === 0 || dow === 6) {
+    av.hidden = false; av.classList.add('warn'); av.textContent = 'Hoy es fin de semana: el mercado está cerrado.';
+  } else if (opsHoy(c) > 0) {
+    av.hidden = false; av.classList.add('warn'); av.textContent = 'Ya registraste una operación hoy en esta cuenta. La regla es una al día.';
+  } else if (dow === 5) {
+    av.hidden = false; av.classList.add('warn'); av.textContent = 'Es viernes: ciérrala a las 4:30 PM sí o sí. Nada puede quedar abierto el fin de semana.';
+  }
+
+  // noticias
+  const not = document.querySelector('input[name="noticias"]:checked')?.value || null;
+  $('campoHoraNoticia').hidden = not !== 'manana';
+  const an = $('avisoNoticias'); an.hidden = true; an.className = 'note';
+  let bloqueoNoticia = false;
+  if (not === 'no') { an.hidden=false; an.classList.add('ok'); an.textContent='Puedes operar a tu hora de siempre.'; }
+  if (not === 'manana') {
+    const h = $('horaNoticia').value;
+    let txt = 'Abre al menos 10 minutos después de la noticia, cuando el spread vuelva a la normalidad (1 pip o menos).';
+    if (h) { const [hh,mm] = h.split(':').map(Number); const t = hh*60+mm+10; txt = 'Abre a partir de las ' + String(Math.floor(t/60)).padStart(2,'0') + ':' + String(t%60).padStart(2,'0') + ', con el spread en 1 pip o menos.'; }
+    an.hidden=false; an.classList.add('warn'); an.textContent = txt;
+  }
+  if (not === 'tarde') {
+    an.hidden=false;
+    if (c.tipo === 'fund') { an.classList.add('bad'); an.textContent = 'Hoy no operes en la cuenta fondeada. Si el SL o el TP se ejecutan dentro de los 5 minutos de la noticia, Funding Pips puede quitarte la ganancia, y si eso te hace pasar un límite, pierdes la cuenta.'; bloqueoNoticia = true; }
+    else { an.classList.add('warn'); an.textContent = 'En el reto se permite, pero el precio puede saltar y deslizar tu SL o tu TP. Si prefieres evitarlo, espera a mañana.'; }
+  }
+  if (!not && c.tipo === 'fund') { an.hidden=false; an.classList.add('warn'); an.textContent='En la cuenta fondeada este paso es obligatorio antes de abrir.'; }
+
+  // dirección
+  const dir = S.sorteo?.dir || 0;
+  const el = $('dir');
+  if (dir === 1) { el.textContent = 'COMPRA (Buy)'; el.className = 'dir buy'; }
+  else if (dir === -1) { el.textContent = 'VENTA (Sell)'; el.className = 'dir sell'; }
+  else { el.textContent = 'Todavía no sorteada'; el.className = 'dir none'; }
+  $('sortear').hidden = dir !== 0;
+
+  // lote
+  const lote = $('lote'), esc = $('escenarios'), det = $('detalleLote');
+  esc.textContent = ''; det.textContent = '';
+  const puede = r.estado === 'ok' && !bloqueoNoticia;
+  if (!puede) {
+    lote.textContent = '—';
+  } else {
+    lote.textContent = r.lote.toFixed(2);
+    const caja = (t, v, cls, extra) => { const d=document.createElement('div'); const l=document.createElement('label'); l.textContent=t; const s=document.createElement('span'); s.className='v '+cls; s.textContent=v; const e=document.createElement('span'); e.className='small'; e.textContent=extra; d.append(l,s,e); esc.appendChild(d); };
+    caja('Si toca el TP', fmt(r.tpBal), 'tp', r.tpBal >= r.metaUSD ? (c.tipo==='fund' ? 'ciclo cumplido' : 'pasas la fase') : 'faltarían ' + fmt(r.metaUSD - r.tpBal));
+    caja('Si toca el SL', fmt(r.slBal), 'sl', fmtS(r.slBal - bal) + ' con comisión');
+    const dd = (k,v) => { const a=document.createElement('dt'); a.textContent=k; const b=document.createElement('dd'); b.textContent=v; det.append(a,b); };
+    dd('Riesgo de la operación', (r.lote*SL_PIPS*USD_PIP_LOTE/c.tamano*100).toFixed(2) + '% del tamaño');
+    dd('Comisión al abrir', fmt(r.comision));
+    const lim = {meta:'lo justo para llegar a la meta', riesgo:'tope de 3.1% por operación', diario:'límite de pérdida diaria', total:'distancia al piso total'};
+    dd('Lo que fija el lote', lim[r.limitante]);
+  }
+
+  // niveles
+  const e = num($('entrada').value);
+  if (dir && isFinite(e) && e > 0.5) {
+    $('sl').textContent = (e - dir*SL_PIPS*PIP).toFixed(5);
+    $('tp').textContent = (e + dir*TP_PIPS*PIP).toFixed(5);
+  } else { $('sl').textContent = '—'; $('tp').textContent = '—'; }
+}
+
+function renderCuentas(){
+  const box = $('listaCuentas'); box.textContent = '';
+  const todas = S.cuentas.slice().sort((a,b)=>(a.estado==='archivada')-(b.estado==='archivada') || a.creado-b.creado);
+  if (!todas.length) { const p=document.createElement('p'); p.className='empty'; p.textContent='Aún no hay cuentas. Agrega la primera con el formulario de abajo.'; box.appendChild(p); return; }
+  todas.forEach(c => {
+    const d = document.createElement('div'); d.className = 'acc';
+    const h = document.createElement('div'); h.className = 'acc-h';
+    const t = document.createElement('b'); t.className='mono'; t.textContent = '#' + c.numero + ' · ' + fmt(c.tamano).replace('.00','');
+    const p = document.createElement('span'); p.className = 'pill ' + (c.estado==='archivada' ? '' : c.tipo); p.textContent = c.estado==='archivada' ? 'Archivada' : NOMBRE_TIPO[c.tipo];
+    h.append(t,p); d.appendChild(h);
+    const info = document.createElement('div'); info.className='small';
+    const res = c.balance - c.tamano;
+    info.textContent = 'Balance ' + fmt(c.balance) + ' (' + fmtS(res) + ') · meta +' + c.meta + '% · límites ' + c.diario + '% diario / ' + c.total + '% total';
+    d.appendChild(info);
+    const btns = document.createElement('div'); btns.className='btns';
+    const mk = (txt, fn, ghost=true) => { const b=document.createElement('button'); b.type='button'; b.className='small' + (ghost?' ghost':''); b.textContent=txt; b.onclick=fn; btns.appendChild(b); return b; };
+    if (c.estado !== 'archivada') {
+      if (c.tipo === 'r1') mk('Pasó a Fase 2', () => pasarFase(c, 'r2'), false);
+      if (c.tipo === 'r2') mk('Pasó a fondeada', () => pasarFase(c, 'fund'), false);
+      if (c.tipo === 'fund') mk('Registrar cobro', () => abrirCobro(c, d), false);
+      mk('Editar', () => editar(c));
+      mk('Archivar', () => confirmar(d, '¿Archivar #' + c.numero + '? Úsalo si la cuenta se perdió o ya no la usas.', async () => { await guardarCuenta({...c, estado:'archivada'}); }));
+    } else {
+      mk('Reactivar', async () => { await guardarCuenta({...c, estado:'activa'}); });
+      mk('Borrar', () => confirmar(d, '¿Borrar #' + c.numero + ' para siempre? El historial se conserva.', async () => { await borrarCuenta(c.id); }));
+    }
+    d.appendChild(btns);
+    box.appendChild(d);
+  });
+}
+
+function confirmar(cont, texto, accion){
+  cont.querySelectorAll('.confirmar').forEach(x=>x.remove());
+  const n = document.createElement('div'); n.className='note warn confirmar';
+  const p = document.createElement('div'); p.textContent = texto;
+  const b = document.createElement('div'); b.className='btns'; b.style.marginTop='8px';
+  const si = document.createElement('button'); si.type='button'; si.className='small'; si.textContent='Sí, confirmar';
+  const no = document.createElement('button'); no.type='button'; no.className='small ghost'; no.textContent='Cancelar';
+  si.onclick = async () => { si.disabled = true; try { await accion(); } catch(e){ p.textContent = 'No se pudo guardar: ' + (e.message||e.code); return; } n.remove(); };
+  no.onclick = () => n.remove();
+  b.append(si,no); n.append(p,b); cont.appendChild(n);
+}
+
+function pasarFase(c, nuevo){
+  const cont = [...$('listaCuentas').children].find(x => x.textContent.includes('#'+c.numero));
+  cont.querySelectorAll('.confirmar').forEach(x=>x.remove());
+  const n = document.createElement('div'); n.className='note ok confirmar'; n.style.display='grid'; n.style.gap='8px';
+  const p = document.createElement('div'); p.textContent = nuevo==='r2' ? 'Funding Pips te da un número de cuenta nuevo para la Fase 2.' : 'Funding Pips te da un número nuevo para la cuenta fondeada (Master).';
+  const id = 'nuevoNum-' + c.id;
+  const l = document.createElement('label'); l.htmlFor = id; l.textContent = 'Número de la cuenta nueva';
+  const i = document.createElement('input'); i.id = id; i.inputMode='numeric';
+  const b = document.createElement('div'); b.className='btns';
+  const ok = document.createElement('button'); ok.type='button'; ok.className='small'; ok.textContent='Crear y archivar la anterior';
+  const no = document.createElement('button'); no.type='button'; no.className='small ghost'; no.textContent='Cancelar';
+  ok.onclick = async () => {
+    const numero = i.value.trim(); if (!numero) { p.textContent = 'Escribe el número de la cuenta nueva.'; return; }
+    ok.disabled = true;
+    const nueva = { id: 'c' + Date.now(), numero, tamano: c.tamano, tipo: nuevo, meta: META_DEF[nuevo], diario: c.diario, total: c.total, balance: c.tamano, estado:'activa', creado: Date.now(), cicloInicio: null };
+    try { await guardarCuenta(nueva); await guardarCuenta({...c, estado:'archivada'}); S.sel = nueva.id; prefs('odd_sel', nueva.id); }
+    catch(e){ p.textContent = 'No se pudo guardar: ' + (e.message||e.code); ok.disabled=false; return; }
+    n.remove();
+  };
+  no.onclick = () => n.remove();
+  b.append(ok,no); n.append(p,l,i,b); cont.appendChild(n); i.focus();
+}
+
+function abrirCobro(c, cont){
+  cont.querySelectorAll('.confirmar').forEach(x=>x.remove());
+  const res = c.balance - c.tamano;
+  const n = document.createElement('div'); n.className='note ok confirmar'; n.style.display='grid'; n.style.gap='8px';
+  const p = document.createElement('div');
+  p.textContent = res > 0 ? 'Ganancia del ciclo: ' + fmt(res) + '. Tu parte (80%): ' + fmt(res*PAGO_PCT) + '. Al registrarlo, el balance vuelve a ' + fmt(c.tamano) + ' y empieza un ciclo nuevo.' : 'No hay ganancia que cobrar en esta cuenta.';
+  const id = 'cobro-' + c.id;
+  const l = document.createElement('label'); l.htmlFor=id; l.textContent='Monto que te pagaron';
+  const i = document.createElement('input'); i.id=id; i.inputMode='decimal'; i.value = res>0 ? (res*PAGO_PCT).toFixed(2) : '';
+  const b = document.createElement('div'); b.className='btns';
+  const ok = document.createElement('button'); ok.type='button'; ok.className='small'; ok.textContent='Registrar cobro';
+  const no = document.createElement('button'); no.type='button'; no.className='small ghost'; no.textContent='Cancelar';
+  ok.disabled = res <= 0;
+  ok.onclick = async () => {
+    const monto = num(i.value); if (!isFinite(monto) || monto <= 0) { p.textContent='Escribe el monto cobrado.'; return; }
+    ok.disabled = true;
+    try {
+      await agregarHist({ ts: Date.now(), fecha: S.hoy, cuenta: c.id, numero: c.numero, tipo:'cobro', resultado: monto, balAntes: c.balance, balDespues: c.tamano });
+      await guardarCuenta({...c, balance: c.tamano, cicloInicio: S.hoy});
+    } catch(e){ p.textContent = 'No se pudo guardar: ' + (e.message||e.code); ok.disabled=false; return; }
+    n.remove();
+  };
+  no.onclick = () => n.remove();
+  b.append(ok,no); n.append(p,l,i,b); cont.appendChild(n);
+}
+
+function editar(c){
+  S.editando = c.id;
+  $('tituloForm').textContent = 'Editar #' + c.numero;
+  $('fNumero').value = c.numero; $('fTamano').value = c.tamano; $('fTipo').value = c.tipo;
+  $('fBalance').value = c.balance.toFixed(2); $('fMeta').value = c.meta; $('fDiario').value = c.diario; $('fTotal').value = c.total;
+  $('cancelarEdicion').hidden = false;
+  $('fNumero').scrollIntoView({behavior:'smooth', block:'center'});
+}
+function limpiarForm(){
+  S.editando = null; $('tituloForm').textContent = 'Agregar cuenta';
+  $('fNumero').value=''; $('fTamano').value='5000'; $('fTipo').value='r1'; $('fBalance').value=''; $('fMeta').value='10'; $('fDiario').value='4'; $('fTotal').value='12';
+  $('cancelarEdicion').hidden = true;
+}
+
+function renderHist(){
+  const tb = $('filasHist'); tb.textContent = '';
+  const nombre = id => { const c = S.cuentas.find(x=>x.id===id); return c ? '#' + c.numero : '—'; };
+  if (!S.hist.length) {
+    const tr=document.createElement('tr'); const td=document.createElement('td'); td.colSpan=6; td.className='empty'; td.style.whiteSpace='normal';
+    td.textContent='Aquí aparecerá cada operación que guardes en el paso 5 de Hoy, y cada cobro.'; tr.appendChild(td); tb.appendChild(tr);
+  }
+  S.hist.forEach(h => {
+    const tr = document.createElement('tr');
+    const td = (t, cls) => { const x=document.createElement('td'); x.textContent=t; if(cls) x.className=cls; tr.appendChild(x); };
+    td(fechaCorta(h.fecha)); td(h.numero ? '#'+h.numero : nombre(h.cuenta));
+    td(h.tipo==='cobro' ? 'Cobro' : h.dir===1 ? 'Compra' : h.dir===-1 ? 'Venta' : '—');
+    td(h.lote ? h.lote.toFixed(2) : '', 'n');
+    td(fmtS(h.resultado), 'n ' + (h.resultado>=0?'pos':'neg'));
+    td(fmt(h.balDespues), 'n');
+    tb.appendChild(tr);
+  });
+  const ops = S.hist.filter(h=>h.tipo==='operacion');
+  const cob = S.hist.filter(h=>h.tipo==='cobro');
+  const R = $('resumenHist'); R.textContent='';
+  const f = (k,v,cls) => { const a=document.createElement('dt'); a.textContent=k; const b=document.createElement('dd'); b.textContent=v; if(cls) b.className=cls; R.append(a,b); };
+  const gan = ops.filter(h=>h.resultado>0).length;
+  const sum = arr => arr.reduce((s,h)=>s+h.resultado,0);
+  f('Operaciones guardadas', String(ops.length));
+  f('Ganadas / perdidas', ops.length ? gan + ' / ' + (ops.length-gan) : '—');
+  const comp = ops.filter(h=>h.dir===1), vent = ops.filter(h=>h.dir===-1);
+  f('Compras', comp.length ? comp.length + ' · ' + fmtS(sum(comp)) : '—');
+  f('Ventas', vent.length ? vent.length + ' · ' + fmtS(sum(vent)) : '—');
+  f('Cobrado en total', cob.length ? fmt(sum(cob)) : '$0.00', cob.length ? 'pos' : '');
+}
+
+/* ============ Acciones ============ */
+function tab(n){
+  ['hoy','cuentas','hist'].forEach(k => { $('pane-'+k).hidden = k!==n; $('tab-'+k).setAttribute('aria-selected', k===n); });
+  prefs('odd_tab', n);
+}
+$('tab-hoy').onclick = () => tab('hoy'); $('tab-cuentas').onclick = () => tab('cuentas'); $('tab-hist').onclick = () => tab('hist');
+$('irCuentas').onclick = () => tab('cuentas');
+
+$('balance').addEventListener('input', renderHoy);
+$('balance').addEventListener('change', async () => {
+  const c = cuentaSel(); const v = num($('balance').value);
+  if (c && isFinite(v) && v > 0 && Math.abs(v - c.balance) > 0.001) { try { await guardarCuenta({...c, balance: v}); } catch(e){} }
+});
+document.querySelectorAll('input[name="noticias"]').forEach(r => r.addEventListener('change', () => { prefs('odd_not_'+S.hoy, r.value); renderHoy(); }));
+$('horaNoticia').addEventListener('input', () => { prefs('odd_hora_'+S.hoy, $('horaNoticia').value); renderHoy(); });
+$('entrada').addEventListener('input', () => { prefs('odd_ent_'+S.hoy, $('entrada').value); renderHoy(); });
+
+$('sortear').onclick = async () => {
+  if (S.sorteo) return;
+  const a = new Uint8Array(1); crypto.getRandomValues(a);
+  const s = { fecha: S.hoy, dir: (a[0] % 2 === 0) ? 1 : -1, ts: Date.now() };
+  $('sortear').disabled = true;
+  try { if (S.db) { const ex = await S.db.collection('sorteos').doc(S.hoy).get(); if (ex.exists) { S.sorteo = ex.data(); renderHoy(); return; } } await guardarSorteo(s); S.sorteo = s; }
+  catch(e){ $('notaSorteo').textContent = 'No se pudo guardar el sorteo. Revisa tu conexión e inténtalo de nuevo.'; }
+  finally { $('sortear').disabled = false; renderHoy(); }
+};
+
+$('registrar').onclick = async () => {
+  const c = cuentaSel(); const av = $('avisoRegistro'); av.hidden=false; av.className='note';
+  const nuevo = num($('balanceNuevo').value);
+  if (!c) return;
+  if (!isFinite(nuevo) || nuevo <= 0) { av.classList.add('bad'); av.textContent='Escribe el balance que muestra MetaTrader después de cerrar.'; return; }
+  const antes = c.balance;
+  const r = calcularLote(c, antes, perdidaHoy(c));
+  const h = { ts: Date.now(), fecha: S.hoy, cuenta: c.id, numero: c.numero, tipo:'operacion', dir: S.sorteo?.dir || 0, lote: r.lote || null,
+              entrada: isFinite(num($('entrada').value)) ? num($('entrada').value) : null, resultado: +(nuevo - antes).toFixed(2), balAntes: antes, balDespues: nuevo };
+  $('registrar').disabled = true;
+  try {
+    await agregarHist(h);
+    const upd = {...c, balance: nuevo};
+    if (c.tipo === 'fund' && !c.cicloInicio) upd.cicloInicio = S.hoy;
+    await guardarCuenta(upd);
+    av.classList.add('ok'); av.textContent = 'Guardado: ' + fmtS(h.resultado) + '. Balance ' + fmt(nuevo) + '.';
+    $('balanceNuevo').value = '';
+  } catch(e){ av.classList.add('bad'); av.textContent = 'No se pudo guardar: ' + (e.message||e.code) + '. Inténtalo de nuevo.'; }
+  finally { $('registrar').disabled = false; }
+};
+
+$('fTipo').addEventListener('change', () => { $('fMeta').value = META_DEF[$('fTipo').value]; });
+$('cancelarEdicion').onclick = limpiarForm;
+$('guardarCuenta').onclick = async () => {
+  const av = $('avisoForm'); av.hidden=false; av.className='note';
+  const numero = $('fNumero').value.trim(), tamano = num($('fTamano').value);
+  const balRaw = $('fBalance').value.trim(); const balance = balRaw ? num(balRaw) : tamano;
+  const meta = num($('fMeta').value), diario = num($('fDiario').value), total = num($('fTotal').value);
+  if (!numero) { av.classList.add('bad'); av.textContent='Escribe el número de cuenta.'; return; }
+  if (!(tamano>0) || !(balance>0) || !(meta>0) || !(diario>0) || !(total>0)) { av.classList.add('bad'); av.textContent='Revisa que todos los montos y porcentajes sean números mayores que cero.'; return; }
+  const previa = S.cuentas.find(x=>x.id===S.editando);
+  const c = { id: previa?.id || ('c' + Date.now()), numero, tamano, tipo: $('fTipo').value, meta, diario, total, balance,
+              estado: previa?.estado || 'activa', creado: previa?.creado || Date.now(), cicloInicio: previa?.cicloInicio || null };
+  $('guardarCuenta').disabled = true;
+  try { await guardarCuenta(c); S.sel = c.id; prefs('odd_sel', c.id); av.classList.add('ok'); av.textContent = previa ? 'Cambios guardados.' : 'Cuenta #' + numero + ' agregada. Ya aparece en Hoy.'; limpiarForm(); }
+  catch(e){ av.classList.add('bad'); av.textContent='No se pudo guardar: ' + (e.message||e.code); }
+  finally { $('guardarCuenta').disabled = false; }
+};
+
+/* ============ Arranque ============ */
+(function restaurar(){
+  const t = prefs('odd_tab'); if (t) tab(t);
+  S.sel = prefs('odd_sel');
+  const n = prefs('odd_not_'+S.hoy); if (n) { const r = document.querySelector('input[name="noticias"][value="'+n+'"]'); if (r) r.checked = true; }
+  const h = prefs('odd_hora_'+S.hoy); if (h) $('horaNoticia').value = h;
+  const e = prefs('odd_ent_'+S.hoy); if (e) $('entrada').value = e;
+})();
+render();
+
+$('sync').textContent = 'Datos guardados en este teléfono · haz un respaldo de vez en cuando';
+cargarLocal();
+
+$('copiarRespaldo').onclick = async () => {
+  const txt = JSON.stringify(Local.leer());
+  $('textoRespaldo').value = txt;
+  const av = $('avisoRespaldo'); av.hidden = false; av.className = 'note';
+  try { await navigator.clipboard.writeText(txt); av.classList.add('ok'); av.textContent = 'Respaldo copiado. Pégalo en WhatsApp o en tus notas.'; }
+  catch(e){ $('textoRespaldo').select(); av.classList.add('warn'); av.textContent = 'Selecciona el texto de arriba y cópialo a mano.'; }
+};
+$('restaurar').onclick = () => {
+  const av = $('avisoRespaldo'); av.hidden = false; av.className = 'note';
+  try {
+    const d = JSON.parse($('textoRespaldo').value.trim());
+    if (!d || !Array.isArray(d.cuentas)) throw new Error('formato');
+    Local.guardar({cuentas: d.cuentas, hist: d.hist || [], sorteos: d.sorteos || {}});
+    cargarLocal(); av.classList.add('ok'); av.textContent = 'Datos restaurados: ' + d.cuentas.length + ' cuentas y ' + (d.hist||[]).length + ' movimientos.';
+  } catch(e){ av.classList.add('bad'); av.textContent = 'Ese texto no es un respaldo válido. Pega el texto completo que copiaste con "Copiar respaldo".'; }
+};
+</script>
+
+</body>
+</html>
