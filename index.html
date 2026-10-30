@@ -104,7 +104,7 @@ ul.rules{margin:0;padding-left:1.1rem;display:grid;gap:6px;font-size:.9rem}
     </div>
     <div>
       <h1>Operación del Día</h1>
-      <p class="sub">EUR/USD · SL 15 pips · TP 22.5 pips · una operación al día</p>
+      <p class="sub" id="subtitulo">EUR/USD u oro · SL y TP fijos · una operación al día</p>
     </div>
   </header>
 
@@ -135,9 +135,9 @@ ul.rules{margin:0;padding-left:1.1rem;display:grid;gap:6px;font-size:.9rem}
 
     <div class="card" id="cardNoticias" hidden>
       <div class="step"><b>1</b><h2>Noticias de hoy</h2></div>
-      <p class="small" style="margin:0">Abre el <a href="https://www.forexfactory.com/calendar" target="_blank" rel="noopener">calendario de Forex Factory</a> y mira si hoy hay noticias <b>rojas</b> de <b>USD</b> o <b>EUR</b>.</p>
+      <p class="small" style="margin:0">Abre el <a href="https://www.forexfactory.com/calendar" target="_blank" rel="noopener">calendario de Forex Factory</a> y mira si hoy hay noticias <b>rojas</b> de <b>USD</b> (y de <b>EUR</b> si operas EUR/USD).</p>
       <div class="opts" role="radiogroup" aria-label="Noticias de hoy">
-        <label class="opt"><input type="radio" name="noticias" id="not-no" value="no"><span>No hay noticias rojas de USD ni EUR hoy</span></label>
+        <label class="opt"><input type="radio" name="noticias" id="not-no" value="no"><span>No hay noticias rojas que me afecten hoy</span></label>
         <label class="opt"><input type="radio" name="noticias" id="not-man" value="manana"><span>Hay una en la mañana, antes de que yo abra</span></label>
         <label class="opt"><input type="radio" name="noticias" id="not-tar" value="tarde"><span>Hay una después de abrir y antes de las 4:30 PM</span></label>
       </div>
@@ -158,13 +158,14 @@ ul.rules{margin:0;padding-left:1.1rem;display:grid;gap:6px;font-size:.9rem}
       <div class="big" id="lote">—</div>
       <div class="out" id="escenarios"></div>
       <dl class="kv" id="detalleLote"></dl>
-      <p class="small" style="margin:0">El lote ya descuenta la comisión ($5 por lote) y deja margen por si el precio se desliza unos pips en una noticia.</p>
+      <p class="small" style="margin:0">El lote ya descuenta la comisión ($5 por lote) y deja margen por si el precio se desliza en una noticia.</p>
     </div>
 
     <div class="card" id="cardNiveles" hidden>
       <div class="step"><b>4</b><h2>Stop Loss y Take Profit</h2></div>
       <div class="field"><label for="entrada">Precio al que se abrió la operación</label>
         <input id="entrada" type="text" inputmode="decimal" autocomplete="off" placeholder="1.11170"></div>
+      <p class="small" style="margin:0" id="nivelesTxt"></p>
       <div class="out">
         <div><label>Stop Loss</label><span class="v sl" id="sl">—</span></div>
         <div><label>Take Profit</label><span class="v tp" id="tp">—</span></div>
@@ -207,10 +208,16 @@ ul.rules{margin:0;padding-left:1.1rem;display:grid;gap:6px;font-size:.9rem}
         <div class="field"><label for="fNumero">Número de cuenta</label><input id="fNumero" type="text" inputmode="numeric" autocomplete="off"></div>
         <div class="field"><label for="fTamano">Tamaño ($)</label><input id="fTamano" type="text" inputmode="decimal" value="5000"></div>
       </div>
+      <div class="row">
+        <div class="field"><label for="fActivo">Activo</label>
+          <select id="fActivo"><option value="EURUSD">EUR/USD</option><option value="XAUUSD">Oro (XAU/USD)</option></select></div>
+        <div class="field"><label for="fReparto">Reparto (%)</label>
+          <select id="fReparto"><option value="80">80%</option><option value="85">85%</option><option value="95">95% (3 días ganadores)</option></select></div>
+      </div>
       <div class="field"><label for="fTipo">Tipo</label>
         <select id="fTipo">
           <option value="r1">Reto · Fase 1 (meta +10%)</option>
-          <option value="r2">Reto · Fase 2 (meta +6%)</option>
+          <option value="r2">Reto · Fase 2 (meta +8%)</option>
           <option value="fund">Fondeada (ciclos de +4%)</option>
         </select></div>
       <div class="row">
@@ -258,14 +265,20 @@ ul.rules{margin:0;padding-left:1.1rem;display:grid;gap:6px;font-size:.9rem}
 
 <script>
 /* ============ Constantes del método ============ */
-const SL_PIPS = 15, TP_PIPS = 22.5, PIP = 0.0001, USD_PIP_LOTE = 10;
+/* Cada activo: SL y TP en su unidad (pips en EUR/USD, dólares por onza en oro),
+   cuánto vale 1 unidad con 1 lote, y márgenes de deslizamiento en la misma unidad. */
+const INST = {
+  EURUSD: { nombre:'EUR/USD', sl:15, tp:22.5, unidad:0.0001, usdLote:10,  deslizSL:5, deslizMeta:3, dec:5, ph:'1.11170', slTxt:'15 pips', tpTxt:'22.5 pips' },
+  XAUUSD: { nombre:'Oro',     sl:17, tp:25.5, unidad:1,      usdLote:100, deslizSL:3, deslizMeta:2, dec:2, ph:'3895.20', slTxt:'$17',     tpTxt:'$25.50' }
+};
 const COMISION_LOTE = 5;          // USD por lote ida y vuelta, se cobra al abrir
 const RIESGO_MAX = 0.031;         // 3.1% del tamaño por operación
-const DESLIZ_META = 3;            // pips que se descuentan al calcular si el TP alcanza la meta
-const DESLIZ_LIMITE = 5;          // pips extra de pérdida posibles en el SL (deslizamiento)
 const COLCHON_TOTAL = 0.005;      // 0.5% de margen sobre el piso total
-const PAGO_PCT = 0.80;            // reparto de la cuenta fondeada
+const DIA_GANADOR = 0.005;        // 0.5% del tamaño = día ganador (regla del 95%)
+const DIAS_GANADORES = 3;
 const DIAS_PAGO = 14;
+const inst = c => INST[c?.activo] || INST.EURUSD;
+const reparto = c => (c?.reparto || 80) / 100;
 
 const $ = id => document.getElementById(id);
 const fmt = n => (n < 0 ? '−$' : '$') + Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -300,12 +313,13 @@ function calcularLote(c, balance, perdidaHoy){
   const pisoTotal = ini * (1 - c.total/100);
   const limiteDiario = ini * c.diario/100;
   const r = {metaUSD, falta, pisoTotal, limiteDiario, lote:0, estado:'ok', motivo:''};
+  const I = inst(c);
+  const perdidaPorLote = I.sl*I.usdLote + COMISION_LOTE + I.deslizSL*I.usdLote;      // EUR/USD 205 · oro 2005
+  const netoMetaPorLote = I.tp*I.usdLote - COMISION_LOTE - I.deslizMeta*I.usdLote;   // EUR/USD 190 · oro 2345
   if (falta <= 0) { r.estado = 'meta'; return r; }
-  const perdidaPorLote = SL_PIPS*USD_PIP_LOTE + COMISION_LOTE + DESLIZ_LIMITE*USD_PIP_LOTE;      // 205
-  const netoMetaPorLote = TP_PIPS*USD_PIP_LOTE - COMISION_LOTE - DESLIZ_META*USD_PIP_LOTE;      // 190
   const cents = x => Math.floor(x*100 + 1e-9);
   const lMeta   = Math.ceil(falta / netoMetaPorLote * 100 - 1e-9);
-  const lRiesgo = cents(ini*RIESGO_MAX / (SL_PIPS*USD_PIP_LOTE));
+  const lRiesgo = cents(ini*RIESGO_MAX / (I.sl*I.usdLote));
   const lDiario = cents((limiteDiario - Math.max(0, perdidaHoy)) / perdidaPorLote);
   const lTotal  = cents((balance - pisoTotal - ini*COLCHON_TOTAL) / perdidaPorLote);
   const l = Math.min(lMeta, lRiesgo, lDiario, lTotal);
@@ -314,14 +328,28 @@ function calcularLote(c, balance, perdidaHoy){
   r.lote = l/100;
   r.limitante = l === lMeta ? 'meta' : l === lRiesgo ? 'riesgo' : l === lDiario ? 'diario' : 'total';
   r.comision = r.lote*COMISION_LOTE;
-  r.tpBal = balance - r.comision + r.lote*TP_PIPS*USD_PIP_LOTE;
-  r.slBal = balance - r.comision - r.lote*SL_PIPS*USD_PIP_LOTE;
+  r.tpBal = balance - r.comision + r.lote*I.tp*I.usdLote;
+  r.slBal = balance - r.comision - r.lote*I.sl*I.usdLote;
   return r;
+}
+
+/* Lote pequeño para completar un día ganador (regla del 95%) sin arriesgar lo ganado */
+function loteDiaGanador(c, balance, perdidaHoyV){
+  const I = inst(c), ini = c.tamano;
+  const neto = I.tp*I.usdLote - COMISION_LOTE - I.deslizMeta*I.usdLote;
+  const perd = I.sl*I.usdLote + COMISION_LOTE + I.deslizSL*I.usdLote;
+  const cents = x => Math.floor(x*100 + 1e-9);
+  const lMin = Math.ceil(ini*DIA_GANADOR / neto * 100 - 1e-9);
+  const lDiario = cents((ini*c.diario/100 - Math.max(0, perdidaHoyV)) / perd);
+  const lTotal = cents((balance - ini*(1 - c.total/100) - ini*COLCHON_TOTAL) / perd);
+  if (lMin > Math.min(lDiario, lTotal)) return null;
+  const lote = lMin/100, com = lote*COMISION_LOTE;
+  return { lote, comision: com, tpBal: balance - com + lote*I.tp*I.usdLote, slBal: balance - com - lote*I.sl*I.usdLote };
 }
 
 /* ============ Estado ============ */
 const S = { cuentas: [], hist: [], sorteo: null, sel: null, editando: null, db: null, hoy: hoyVE() };
-const META_DEF = {r1:10, r2:6, fund:4};
+const META_DEF = {r1:10, r2:8, fund:4};
 const NOMBRE_TIPO = {r1:'Reto · Fase 1', r2:'Reto · Fase 2', fund:'Fondeada'};
 
 function prefs(k, v){ try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch(e){ return null; } }
@@ -361,6 +389,14 @@ function cuentaSel(){ const act = cuentasActivas(); return act.find(c=>c.id===S.
 function perdidaHoy(c){
   return S.hist.filter(h=>h.cuenta===c.id && h.fecha===S.hoy && h.tipo==='operacion' && h.resultado<0).reduce((s,h)=>s-h.resultado,0);
 }
+/* Días ganadores: días con resultado neto >= 0.5% del tamaño, desde que empezó la fase o desde el último cobro */
+function diasGanadores(c){
+  const desde = c.contadorDesde || c.creado || 0;
+  const porDia = {};
+  S.hist.filter(h => h.cuenta===c.id && h.tipo==='operacion' && h.ts > desde).forEach(h => { porDia[h.fecha] = (porDia[h.fecha]||0) + h.resultado; });
+  return Object.values(porDia).filter(v => v >= c.tamano*DIA_GANADOR - 0.005).length;
+}
+function necesitaDias(c){ return (c.reparto||80) === 95 ? Math.max(0, DIAS_GANADORES - diasGanadores(c)) : 0; }
 function opsHoy(c){ return S.hist.filter(h=>h.cuenta===c.id && h.fecha===S.hoy && h.tipo==='operacion').length; }
 
 function render(){
@@ -380,7 +416,7 @@ function renderHoy(){
   act.forEach(a => {
     const b = document.createElement('button'); b.type='button'; b.className='chip'; b.setAttribute('aria-pressed', a.id===c.id);
     b.textContent = '#' + a.numero;
-    const s = document.createElement('small'); s.textContent = NOMBRE_TIPO[a.tipo] + ' · ' + fmt(a.balance).replace('.00',''); b.appendChild(s);
+    const s = document.createElement('small'); s.textContent = NOMBRE_TIPO[a.tipo] + ' · ' + inst(a).nombre + ' · ' + fmt(a.balance).replace('.00',''); b.appendChild(s);
     b.onclick = () => { S.sel = a.id; prefs('odd_sel', a.id); $('balance').value = ''; render(); };
     chips.appendChild(b);
   });
@@ -390,7 +426,13 @@ function renderHoy(){
   if (document.activeElement !== inp) inp.value = c.balance.toFixed(2);
   const bal = isFinite(num(inp.value)) ? num(inp.value) : c.balance;
 
+  const I = inst(c);
+  $('subtitulo').textContent = I.nombre + ' · SL ' + I.slTxt + ' · TP ' + I.tpTxt + ' · una operación al día';
+  $('entrada').placeholder = I.ph;
   const r = calcularLote(c, bal, perdidaHoy(c));
+  const faltanDias = necesitaDias(c);
+  let mini = null;
+  if (r.estado === 'meta' && faltanDias > 0) mini = loteDiaGanador(c, bal, perdidaHoy(c));
   const est = $('estado'); est.textContent = '';
   const fila = (k,v,cls) => { const dt=document.createElement('dt'); dt.textContent=k; const dd=document.createElement('dd'); dd.textContent=v; if(cls) dd.className=cls; est.append(dt,dd); };
   const res = bal - c.tamano;
@@ -398,18 +440,22 @@ function renderHoy(){
   fila(c.tipo==='fund' ? 'Meta del ciclo' : 'Meta de la fase', fmt(r.metaUSD) + ' (+' + c.meta + '%)');
   fila('Te falta', r.falta > 0 ? fmt(r.falta) : 'Nada');
   fila('Piso total', fmt(r.pisoTotal) + ' · margen ' + fmt(bal - r.pisoTotal));
+  if ((c.reparto||80) === 95) fila('Días ganadores (≥ ' + fmt(c.tamano*DIA_GANADOR) + ')', Math.min(diasGanadores(c), DIAS_GANADORES) + ' de ' + DIAS_GANADORES, faltanDias ? '' : 'pos');
   if (c.tipo === 'fund') {
     if (c.cicloInicio) {
       const pago = sumarDias(c.cicloInicio, DIAS_PAGO); const d = diffDias(S.hoy, pago);
       fila('Próximo cobro (aprox.)', fechaCorta(pago) + (d>0 ? ' · en ' + d + ' días' : ' · ya puedes pedirlo'));
     } else fila('Próximo cobro', 'empieza a contar con tu primera operación');
-    if (res > 0) fila('Cobrarías hoy (80%)', fmt(res*PAGO_PCT));
+    if (res > 0) fila('Cobrarías hoy (' + (c.reparto||80) + '%)', fmt(res*reparto(c)));
   }
 
   // aviso cuenta
   const av = $('avisoCuenta'); av.hidden = true; av.className = 'note';
   const dow = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Caracas'})).getDay();
-  if (r.estado === 'meta') {
+  if (r.estado === 'meta' && faltanDias > 0) {
+    av.hidden = false; av.classList.add('warn');
+    av.textContent = (c.tipo==='fund' ? 'Ciclo cumplido' : 'Meta alcanzada') + ', pero con el reparto de 95% te ' + (faltanDias===1 ? 'falta 1 día ganador' : 'faltan ' + faltanDias + ' días ganadores') + '. Sigue operando con el lote pequeño de abajo: si gana, cuenta como día ganador; si pierde, casi no toca lo ganado.' + (mini ? '' : ' Hoy no alcanza el margen para el lote pequeño.');
+  } else if (r.estado === 'meta') {
     av.hidden = false; av.classList.add('ok');
     av.textContent = c.tipo === 'fund'
       ? 'Ciclo cumplido. No abras más operaciones hasta pedir el cobro. Cuando lo pidas, regístralo en Cuentas → Registrar cobro.'
@@ -456,15 +502,26 @@ function renderHoy(){
   const lote = $('lote'), esc = $('escenarios'), det = $('detalleLote');
   esc.textContent = ''; det.textContent = '';
   const puede = r.estado === 'ok' && !bloqueoNoticia;
-  if (!puede) {
+  S.loteHoy = null;
+  if (mini && !bloqueoNoticia) {
+    S.loteHoy = mini.lote;
+    lote.textContent = mini.lote.toFixed(2);
+    const caja = (t, v, cls, extra) => { const d=document.createElement('div'); const l=document.createElement('label'); l.textContent=t; const s=document.createElement('span'); s.className='v '+cls; s.textContent=v; const e=document.createElement('span'); e.className='small'; e.textContent=extra; d.append(l,s,e); esc.appendChild(d); };
+    caja('Si toca el TP', fmt(mini.tpBal), 'tp', fmtS(mini.tpBal - bal) + ' · día ganador');
+    caja('Si toca el SL', fmt(mini.slBal), 'sl', fmtS(mini.slBal - bal) + ' con comisión');
+    const dd = (k,v) => { const a=document.createElement('dt'); a.textContent=k; const b=document.createElement('dd'); b.textContent=v; det.append(a,b); };
+    dd('Lo que fija el lote', 'lote pequeño para completar días ganadores');
+    dd('Comisión al abrir', fmt(mini.comision));
+  } else if (!puede) {
     lote.textContent = '—';
   } else {
+    S.loteHoy = r.lote;
     lote.textContent = r.lote.toFixed(2);
     const caja = (t, v, cls, extra) => { const d=document.createElement('div'); const l=document.createElement('label'); l.textContent=t; const s=document.createElement('span'); s.className='v '+cls; s.textContent=v; const e=document.createElement('span'); e.className='small'; e.textContent=extra; d.append(l,s,e); esc.appendChild(d); };
     caja('Si toca el TP', fmt(r.tpBal), 'tp', r.tpBal >= r.metaUSD ? (c.tipo==='fund' ? 'ciclo cumplido' : 'pasas la fase') : 'faltarían ' + fmt(r.metaUSD - r.tpBal));
     caja('Si toca el SL', fmt(r.slBal), 'sl', fmtS(r.slBal - bal) + ' con comisión');
     const dd = (k,v) => { const a=document.createElement('dt'); a.textContent=k; const b=document.createElement('dd'); b.textContent=v; det.append(a,b); };
-    dd('Riesgo de la operación', (r.lote*SL_PIPS*USD_PIP_LOTE/c.tamano*100).toFixed(2) + '% del tamaño');
+    dd('Riesgo de la operación', (r.lote*I.sl*I.usdLote/c.tamano*100).toFixed(2) + '% del tamaño');
     dd('Comisión al abrir', fmt(r.comision));
     const lim = {meta:'lo justo para llegar a la meta', riesgo:'tope de 3.1% por operación', diario:'límite de pérdida diaria', total:'distancia al piso total'};
     dd('Lo que fija el lote', lim[r.limitante]);
@@ -473,9 +530,11 @@ function renderHoy(){
   // niveles
   const e = num($('entrada').value);
   if (dir && isFinite(e) && e > 0.5) {
-    $('sl').textContent = (e - dir*SL_PIPS*PIP).toFixed(5);
-    $('tp').textContent = (e + dir*TP_PIPS*PIP).toFixed(5);
+    $('sl').textContent = (e - dir*I.sl*I.unidad).toFixed(I.dec);
+    $('tp').textContent = (e + dir*I.tp*I.unidad).toFixed(I.dec);
   } else { $('sl').textContent = '—'; $('tp').textContent = '—'; }
+  $('nivelesTxt').textContent = dir === 1 ? 'Compra: el SL va ' + I.slTxt + ' ABAJO de la entrada y el TP ' + I.tpTxt + ' ARRIBA.'
+    : dir === -1 ? 'Venta: el SL va ' + I.slTxt + ' ARRIBA de la entrada y el TP ' + I.tpTxt + ' ABAJO.' : '';
 }
 
 function renderCuentas(){
@@ -490,7 +549,7 @@ function renderCuentas(){
     h.append(t,p); d.appendChild(h);
     const info = document.createElement('div'); info.className='small';
     const res = c.balance - c.tamano;
-    info.textContent = 'Balance ' + fmt(c.balance) + ' (' + fmtS(res) + ') · meta +' + c.meta + '% · límites ' + c.diario + '% diario / ' + c.total + '% total';
+    info.textContent = inst(c).nombre + ' · reparto ' + (c.reparto||80) + '% · balance ' + fmt(c.balance) + ' (' + fmtS(res) + ') · meta +' + c.meta + '% · límites ' + c.diario + '% diario / ' + c.total + '% total';
     d.appendChild(info);
     const btns = document.createElement('div'); btns.className='btns';
     const mk = (txt, fn, ghost=true) => { const b=document.createElement('button'); b.type='button'; b.className='small' + (ghost?' ghost':''); b.textContent=txt; b.onclick=fn; btns.appendChild(b); return b; };
@@ -535,7 +594,7 @@ function pasarFase(c, nuevo){
   ok.onclick = async () => {
     const numero = i.value.trim(); if (!numero) { p.textContent = 'Escribe el número de la cuenta nueva.'; return; }
     ok.disabled = true;
-    const nueva = { id: 'c' + Date.now(), numero, tamano: c.tamano, tipo: nuevo, meta: META_DEF[nuevo], diario: c.diario, total: c.total, balance: c.tamano, estado:'activa', creado: Date.now(), cicloInicio: null };
+    const nueva = { id: 'c' + Date.now(), numero, tamano: c.tamano, tipo: nuevo, meta: META_DEF[nuevo], diario: c.diario, total: c.total, balance: c.tamano, estado:'activa', creado: Date.now(), cicloInicio: null, activo: c.activo || 'EURUSD', reparto: c.reparto || 80 };
     try { await guardarCuenta(nueva); await guardarCuenta({...c, estado:'archivada'}); S.sel = nueva.id; prefs('odd_sel', nueva.id); }
     catch(e){ p.textContent = 'No se pudo guardar: ' + (e.message||e.code); ok.disabled=false; return; }
     n.remove();
@@ -549,10 +608,10 @@ function abrirCobro(c, cont){
   const res = c.balance - c.tamano;
   const n = document.createElement('div'); n.className='note ok confirmar'; n.style.display='grid'; n.style.gap='8px';
   const p = document.createElement('div');
-  p.textContent = res > 0 ? 'Ganancia del ciclo: ' + fmt(res) + '. Tu parte (80%): ' + fmt(res*PAGO_PCT) + '. Al registrarlo, el balance vuelve a ' + fmt(c.tamano) + ' y empieza un ciclo nuevo.' : 'No hay ganancia que cobrar en esta cuenta.';
+  p.textContent = res > 0 ? 'Ganancia del ciclo: ' + fmt(res) + '. Tu parte (' + (c.reparto||80) + '%): ' + fmt(res*reparto(c)) + ', antes de comisiones del envío. Escribe lo que de verdad te llegó. Al registrarlo, el balance vuelve a ' + fmt(c.tamano) + ' y empieza un ciclo nuevo.' : 'No hay ganancia que cobrar en esta cuenta.';
   const id = 'cobro-' + c.id;
   const l = document.createElement('label'); l.htmlFor=id; l.textContent='Monto que te pagaron';
-  const i = document.createElement('input'); i.id=id; i.inputMode='decimal'; i.value = res>0 ? (res*PAGO_PCT).toFixed(2) : '';
+  const i = document.createElement('input'); i.id=id; i.inputMode='decimal'; i.value = res>0 ? (res*reparto(c)).toFixed(2) : '';
   const b = document.createElement('div'); b.className='btns';
   const ok = document.createElement('button'); ok.type='button'; ok.className='small'; ok.textContent='Registrar cobro';
   const no = document.createElement('button'); no.type='button'; no.className='small ghost'; no.textContent='Cancelar';
@@ -562,7 +621,7 @@ function abrirCobro(c, cont){
     ok.disabled = true;
     try {
       await agregarHist({ ts: Date.now(), fecha: S.hoy, cuenta: c.id, numero: c.numero, tipo:'cobro', resultado: monto, balAntes: c.balance, balDespues: c.tamano });
-      await guardarCuenta({...c, balance: c.tamano, cicloInicio: S.hoy});
+      await guardarCuenta({...c, balance: c.tamano, cicloInicio: S.hoy, contadorDesde: Date.now()});
     } catch(e){ p.textContent = 'No se pudo guardar: ' + (e.message||e.code); ok.disabled=false; return; }
     n.remove();
   };
@@ -575,12 +634,13 @@ function editar(c){
   $('tituloForm').textContent = 'Editar #' + c.numero;
   $('fNumero').value = c.numero; $('fTamano').value = c.tamano; $('fTipo').value = c.tipo;
   $('fBalance').value = c.balance.toFixed(2); $('fMeta').value = c.meta; $('fDiario').value = c.diario; $('fTotal').value = c.total;
+  $('fActivo').value = c.activo || 'EURUSD'; $('fReparto').value = String(c.reparto || 80);
   $('cancelarEdicion').hidden = false;
   $('fNumero').scrollIntoView({behavior:'smooth', block:'center'});
 }
 function limpiarForm(){
   S.editando = null; $('tituloForm').textContent = 'Agregar cuenta';
-  $('fNumero').value=''; $('fTamano').value='5000'; $('fTipo').value='r1'; $('fBalance').value=''; $('fMeta').value='10'; $('fDiario').value='4'; $('fTotal').value='12';
+  $('fNumero').value=''; $('fTamano').value='5000'; $('fTipo').value='r1'; $('fBalance').value=''; $('fMeta').value='10'; $('fDiario').value='4'; $('fTotal').value='12'; $('fActivo').value='EURUSD'; $('fReparto').value='80';
   $('cancelarEdicion').hidden = true;
 }
 
@@ -649,7 +709,7 @@ $('registrar').onclick = async () => {
   if (!isFinite(nuevo) || nuevo <= 0) { av.classList.add('bad'); av.textContent='Escribe el balance que muestra MetaTrader después de cerrar.'; return; }
   const antes = c.balance;
   const r = calcularLote(c, antes, perdidaHoy(c));
-  const h = { ts: Date.now(), fecha: S.hoy, cuenta: c.id, numero: c.numero, tipo:'operacion', dir: S.sorteo?.dir || 0, lote: r.lote || null,
+  const h = { ts: Date.now(), fecha: S.hoy, cuenta: c.id, numero: c.numero, tipo:'operacion', dir: S.sorteo?.dir || 0, lote: S.loteHoy || r.lote || null, activo: c.activo || 'EURUSD',
               entrada: isFinite(num($('entrada').value)) ? num($('entrada').value) : null, resultado: +(nuevo - antes).toFixed(2), balAntes: antes, balDespues: nuevo };
   $('registrar').disabled = true;
   try {
@@ -674,7 +734,8 @@ $('guardarCuenta').onclick = async () => {
   if (!(tamano>0) || !(balance>0) || !(meta>0) || !(diario>0) || !(total>0)) { av.classList.add('bad'); av.textContent='Revisa que todos los montos y porcentajes sean números mayores que cero.'; return; }
   const previa = S.cuentas.find(x=>x.id===S.editando);
   const c = { id: previa?.id || ('c' + Date.now()), numero, tamano, tipo: $('fTipo').value, meta, diario, total, balance,
-              estado: previa?.estado || 'activa', creado: previa?.creado || Date.now(), cicloInicio: previa?.cicloInicio || null };
+              estado: previa?.estado || 'activa', creado: previa?.creado || Date.now(), cicloInicio: previa?.cicloInicio || null,
+              activo: $('fActivo').value, reparto: Number($('fReparto').value), contadorDesde: previa?.contadorDesde || null };
   $('guardarCuenta').disabled = true;
   try { await guardarCuenta(c); S.sel = c.id; prefs('odd_sel', c.id); av.classList.add('ok'); av.textContent = previa ? 'Cambios guardados.' : 'Cuenta #' + numero + ' agregada. Ya aparece en Hoy.'; limpiarForm(); }
   catch(e){ av.classList.add('bad'); av.textContent='No se pudo guardar: ' + (e.message||e.code); }
