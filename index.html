@@ -150,7 +150,7 @@ ul.rules{margin:0;padding-left:1.1rem;display:grid;gap:6px;font-size:.9rem}
       <div class="step"><b>2</b><h2>Dirección de hoy</h2></div>
       <div class="dir none" id="dir">Todavía no sorteada</div>
       <button type="button" id="sortear">Sortear dirección</button>
-      <p class="small" style="margin:0" id="notaSorteo">Un solo sorteo por día y vale para <b>todas</b> tus cuentas. Si una cuenta compra y otra vende el mismo día, las firmas lo tratan como cobertura entre cuentas, que está prohibida.</p>
+      <p class="small" style="margin:0" id="notaSorteo">Un sorteo por firma: todas las cuentas de <b>Funding Pips</b> van en una dirección y las de <b>FundedNext</b> en otra, independiente. Dentro de una misma firma nunca abras direcciones opuestas: es cobertura entre cuentas y está prohibida.</p>
     </div>
 
     <div class="card" id="cardLote" hidden>
@@ -359,6 +359,9 @@ function loteDiaGanador(c, balance, perdidaHoyV){
 
 /* ============ Estado ============ */
 const S = { cuentas: [], hist: [], sorteo: null, sel: null, editando: null, db: null, hoy: hoyVE() };
+// Un sorteo por firma. Los sorteos viejos (un solo "dir") valen para todas las cuentas.
+const dirDe = c => { const s = S.sorteo; if (!s) return 0; if (s.dirs) return s.dirs[(c && c.firma) || 'FP'] || 0; return s.dir || 0; };
+const txtDir = d => d === 1 ? 'Compra' : d === -1 ? 'Venta' : '—';
 const META_DEF = {r1:10, r2:8, fund:4};
 const NOMBRE_TIPO = {r1:'Reto · Fase 1', r2:'Reto · Fase 2', fund:'Fondeada'};
 
@@ -501,8 +504,11 @@ function renderHoy(){
   if (!not && c.tipo === 'fund') { an.hidden=false; an.classList.add('warn'); an.textContent='En la cuenta fondeada este paso es obligatorio antes de abrir.'; }
 
   // dirección
-  const dir = S.sorteo?.dir || 0;
+  const dir = dirDe(c);
   const el = $('dir');
+  if (S.sorteo) $('notaSorteo').textContent = S.sorteo.dirs
+    ? 'Funding Pips: ' + txtDir(S.sorteo.dirs.FP) + ' · FundedNext: ' + txtDir(S.sorteo.dirs.FN) + '. Todas las cuentas de una misma firma van en la misma dirección.'
+    : 'Sorteo único de hoy: vale para todas tus cuentas.';
   if (dir === 1) { el.textContent = 'COMPRA (Buy)'; el.className = 'dir buy'; }
   else if (dir === -1) { el.textContent = 'VENTA (Sell)'; el.className = 'dir sell'; }
   else { el.textContent = 'Todavía no sorteada'; el.className = 'dir none'; }
@@ -704,8 +710,9 @@ $('entrada').addEventListener('input', () => { prefs('odd_ent_'+S.hoy, $('entrad
 
 $('sortear').onclick = async () => {
   if (S.sorteo) return;
-  const a = new Uint8Array(1); crypto.getRandomValues(a);
-  const s = { fecha: S.hoy, dir: (a[0] % 2 === 0) ? 1 : -1, ts: Date.now() };
+  const a = new Uint8Array(2); crypto.getRandomValues(a);
+  const dFP = (a[0] % 2 === 0) ? 1 : -1, dFN = (a[1] % 2 === 0) ? 1 : -1;
+  const s = { fecha: S.hoy, dir: dFP, dirs: { FP: dFP, FN: dFN }, ts: Date.now() };
   $('sortear').disabled = true;
   try { if (S.db) { const ex = await S.db.collection('sorteos').doc(S.hoy).get(); if (ex.exists) { S.sorteo = ex.data(); renderHoy(); return; } } await guardarSorteo(s); S.sorteo = s; }
   catch(e){ $('notaSorteo').textContent = 'No se pudo guardar el sorteo. Revisa tu conexión e inténtalo de nuevo.'; }
@@ -719,7 +726,7 @@ $('registrar').onclick = async () => {
   if (!isFinite(nuevo) || nuevo <= 0) { av.classList.add('bad'); av.textContent='Escribe el balance que muestra MetaTrader después de cerrar.'; return; }
   const antes = c.balance;
   const r = calcularLote(c, antes, perdidaHoy(c));
-  const h = { ts: Date.now(), fecha: S.hoy, cuenta: c.id, numero: c.numero, tipo:'operacion', dir: S.sorteo?.dir || 0, lote: S.loteHoy || r.lote || null, activo: c.activo || 'EURUSD',
+  const h = { ts: Date.now(), fecha: S.hoy, cuenta: c.id, numero: c.numero, tipo:'operacion', dir: dirDe(c), lote: S.loteHoy || r.lote || null, activo: c.activo || 'EURUSD',
               entrada: isFinite(num($('entrada').value)) ? num($('entrada').value) : null, resultado: +(nuevo - antes).toFixed(2), balAntes: antes, balDespues: nuevo };
   $('registrar').disabled = true;
   try {
